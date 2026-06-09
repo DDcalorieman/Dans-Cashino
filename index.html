@@ -108,9 +108,9 @@
             font-family: 'Courier New', Courier, monospace;
             font-weight: 900;
         }
-        th, td { padding: 3px 5px; border-bottom: 1px solid #333; }
-        th { background-color: #111; color: var(--gold); text-align: center; cursor: pointer; padding: 5px; }
-        td:first-child { text-align: left; color: #fff; width: 35%; }
+        th, td { padding: 3px 5px; border-bottom: 1px solid #333; cursor: pointer; }
+        th { background-color: #111; color: var(--gold); text-align: center; padding: 5px; }
+        td:first-child { text-align: left; color: #fff; width: 35%; cursor: default; }
         
         .col-active { background-color: rgba(255, 207, 64, 0.2) !important; color: var(--gold); }
         th.col-active { background-color: var(--gold) !important; color: #000; text-shadow: none; }
@@ -227,9 +227,19 @@
         }
         .card-container.held .held-badge { display: block; }
 
-        /* Controls */
+        /* Controls & Message Area */
         .control-panel { padding-bottom: 5px; display: flex; flex-direction: column; gap: 8px; }
-        .message-area { text-align: center; font-size: clamp(16px, 4vw, 20px); height: 24px; color: var(--gold); font-weight: 900; text-shadow: 1px 1px 2px #000; }
+        
+        .message-container {
+            text-align: center;
+            height: 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .win-hand-area { font-size: clamp(14px, 4vw, 18px); color: var(--gold); font-weight: 900; margin-bottom: 2px; }
+        .message-area { font-size: clamp(18px, 5vw, 22px); color: var(--neon-green); font-weight: 900; }
         
         .big-btn {
             background: linear-gradient(180deg, #ef4444 0%, #991b1b 100%);
@@ -274,27 +284,6 @@
             box-shadow: 0 4px 0 #4c1d95;
         }
 
-        /* Win Popup Modal */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: none; justify-content: center; align-items: center;
-            z-index: 1000; backdrop-filter: blur(5px);
-        }
-        .win-box {
-            background: linear-gradient(135deg, #1e1b2e 0%, #0d0914 100%);
-            border: 4px solid var(--neon-green);
-            padding: 30px;
-            border-radius: 16px;
-            text-align: center;
-            box-shadow: 0 0 30px rgba(57, 255, 20, 0.5), inset 0 0 20px rgba(57, 255, 20, 0.2);
-            animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes pop-in { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .win-title { color: var(--gold); font-size: 32px; margin: 0 0 10px 0; text-transform: uppercase; text-shadow: 0 0 10px var(--gold); }
-        .win-amount { color: var(--neon-green); font-size: 48px; margin: 0; font-weight: 900; text-shadow: 0 0 15px rgba(57, 255, 20, 0.8); }
-        .win-tap { color: #94a3b8; font-size: 14px; margin-top: 20px; font-weight: bold; }
-
     </style>
 </head>
 <body>
@@ -336,22 +325,16 @@
     <div class="card-stage" id="cardStage"></div>
 
     <div class="control-panel">
-        <div class="message-area" id="messageArea">TAP PAYTABLE TO SET BET</div>
+        <div class="message-container">
+            <div class="win-hand-area" id="winHandArea"></div>
+            <div class="message-area" id="messageArea" style="color: var(--gold);">TAP PAYTABLE TO SET BET</div>
+        </div>
         <button class="hint-btn" id="hintBtn" onclick="showHint()">INCORRECT! Tap for Perfect Play</button>
         <button class="big-btn" id="mainBtn" onclick="handleMainAction()">DEAL</button>
     </div>
 
-    <div class="modal-overlay" id="winModal" onclick="closePopup()">
-        <div class="win-box">
-            <h1 class="win-title" id="winHandName">ROYAL FLUSH</h1>
-            <h2 class="win-amount" id="winAmountValue">$1,000.00</h2>
-            <div class="win-tap">TAP TO COLLECT</div>
-        </div>
-    </div>
-
     <script>
         // --- AUDIO ENGINE ---
-        // These look for files named deal.mp3 and win.mp3 in the same folder
         const dealSound = new Audio('deal.mp3');
         const winSound = new Audio('win.mp3');
         
@@ -392,12 +375,12 @@
         const uiStage = document.getElementById('cardStage');
         const uiBalance = document.getElementById('balanceDisplay');
         const uiNet = document.getElementById('netDisplay');
+        const uiWinHandArea = document.getElementById('winHandArea');
         const uiMessage = document.getElementById('messageArea');
         const uiMainBtn = document.getElementById('mainBtn');
         const uiHintBtn = document.getElementById('hintBtn');
         const uiBetDisplay = document.getElementById('betDisplay');
         const uiPaytableBody = document.getElementById('paytable-body');
-        const uiModal = document.getElementById('winModal');
 
         // --- INITIALIZATION ---
         function initApp() {
@@ -429,7 +412,8 @@
                 tr.id = `row-${row.id}`;
                 let html = `<td>${row.name}</td>`;
                 for(let i=0; i<5; i++) {
-                    html += `<td class="col-pay-${i+1}">${row.pays[i]}</td>`;
+                    // Added onclick here to make every cell in the column tappable
+                    html += `<td class="col-pay-${i+1}" onclick="setBetLevel(${i+1})">${row.pays[i]}</td>`;
                 }
                 tr.innerHTML = html;
                 uiPaytableBody.appendChild(tr);
@@ -486,12 +470,12 @@
         function dealHand() {
             let cost = betCredits * creditValue;
             if (balance < cost) {
+                uiWinHandArea.innerText = "";
                 uiMessage.innerText = "ADD FUNDS TO PLAY";
                 uiMessage.style.color = "#ef4444";
                 return;
             }
             
-            // PLAY DEAL SOUND
             dealSound.cloneNode(true).play().catch(e => console.log("Audio play prevented"));
 
             isAnimating = true;
@@ -507,6 +491,7 @@
             preDrawWin = false;
             
             uiHintBtn.style.display = 'none';
+            uiWinHandArea.innerText = "";
             uiMessage.innerText = "DEALING...";
             uiMessage.style.color = "#fff";
             uiMainBtn.className = "big-btn"; 
@@ -525,6 +510,7 @@
                 setTimeout(() => {
                     gameState = 'dealt';
                     uiMainBtn.innerText = "DRAW";
+                    uiWinHandArea.innerText = "";
                     uiMessage.innerText = "CHOOSE CARDS TO HOLD";
                     uiMessage.style.color = "var(--gold)";
                     
@@ -533,7 +519,8 @@
                         preDrawWin = true;
                         uiMainBtn.classList.add('btn-winner');
                         uiMainBtn.innerText = "DRAW (WINNER DEALT!)";
-                        uiMessage.innerText = dealtEval.name.toUpperCase() + " DEALT!";
+                        uiWinHandArea.innerText = dealtEval.name.toUpperCase() + " DEALT!";
+                        uiMessage.innerText = "CHOOSE CARDS TO HOLD";
                         uiMessage.style.color = "var(--neon-green)";
                     }
                     isAnimating = false;
@@ -557,14 +544,15 @@
             if (trainerActive && !isPerfect && !hintShown) {
                 uiHintBtn.style.display = 'block';
                 uiMainBtn.className = "big-btn"; 
+                uiWinHandArea.innerText = "";
                 uiMessage.innerText = "";
                 return; 
             }
 
-            // PLAY DRAW SOUND
             dealSound.cloneNode(true).play().catch(e => console.log("Audio play prevented"));
 
             isAnimating = true;
+            uiWinHandArea.innerText = "";
             uiMessage.innerText = "DRAWING...";
             uiHintBtn.style.display = 'none';
             uiMainBtn.className = "big-btn";
@@ -624,7 +612,8 @@
                 else container.classList.remove('held');
             }
             uiHintBtn.style.display = 'none';
-            uiMessage.innerText = "PERFECT PLAY APPLIED";
+            uiWinHandArea.innerText = "PERFECT PLAY APPLIED";
+            uiMessage.innerText = "PRESS DRAW";
             uiMessage.style.color = "var(--gold)";
             if (preDrawWin) uiMainBtn.classList.add('btn-winner');
         }
@@ -640,14 +629,16 @@
                 net += cashWon;
                 
                 document.getElementById(`row-${result.id}`).classList.add('row-winner');
+                
+                // Set Inline Win Text
+                uiWinHandArea.innerText = result.name.toUpperCase();
                 uiMessage.innerText = `WINNER: $${cashWon.toFixed(2)}`;
                 uiMessage.style.color = "var(--neon-green)";
                 
-                // PLAY WIN SOUND
                 winSound.cloneNode(true).play().catch(e => console.log("Audio play prevented"));
                 
-                showPopup(result.name, cashWon);
             } else {
+                uiWinHandArea.innerText = "";
                 uiMessage.innerText = "GAME OVER";
                 uiMessage.style.color = "#cbd5e1";
             }
@@ -655,17 +646,6 @@
             updateBankroll();
             gameState = 'gameover';
             uiMainBtn.innerText = `DEAL ($${(betCredits * creditValue).toFixed(2)})`;
-        }
-
-        function showPopup(name, amount) {
-            document.getElementById('winHandName').innerText = name;
-            document.getElementById('winAmountValue').innerText = `+$${amount.toFixed(2)}`;
-            uiModal.style.display = 'flex';
-            setTimeout(() => { closePopup(); }, 2500);
-        }
-
-        function closePopup() {
-            uiModal.style.display = 'none';
         }
 
         function evaluatePokerHand(cards) {
