@@ -180,6 +180,7 @@
 </head>
 <body>
 
+    <!-- ================= MAIN MENU ================= -->
     <div id="menu-screen" class="screen active">
         <div class="neon-title" style="font-size: 40px; margin-bottom: 30px;">Dan's CASHino</div>
         <button class="menu-btn" onclick="openScreen('vp-screen')">Video Poker</button>
@@ -187,6 +188,7 @@
     </div>
 
 
+    <!-- ================= VIDEO POKER SCREEN ================= -->
     <div id="vp-screen" class="screen">
         <div class="header">
             <div>
@@ -225,6 +227,7 @@
     </div>
 
 
+    <!-- ================= BLACKJACK SCREEN ================= -->
     <div id="bj-screen" class="screen">
         <div class="header">
             <div>
@@ -255,6 +258,7 @@
         <div class="control-panel">
             <div class="message-area" id="bjMessageArea">PLACE YOUR BET</div>
             
+            <!-- Betting Controls -->
             <div id="bj-bet-controls" class="action-row">
                 <button onclick="bjSetBet(5)">$5</button>
                 <button onclick="bjSetBet(25)">$25</button>
@@ -262,6 +266,7 @@
                 <button class="btn-green" onclick="bjDeal()" id="bj-deal-btn">DEAL ($5)</button>
             </div>
             
+            <!-- Action Controls -->
             <div id="bj-action-controls" class="action-row" style="display: none;">
                 <button class="btn-green" onclick="bjUserAction('H')">HIT</button>
                 <button class="btn-green" onclick="bjUserAction('S')">STAND</button>
@@ -271,6 +276,7 @@
         </div>
     </div>
 
+    <!-- Blackjack Settings Modal -->
     <div id="bj-settings-modal" class="modal-overlay">
         <div class="modal-box">
             <h2>Table Settings</h2>
@@ -288,6 +294,7 @@
         </div>
     </div>
     
+    <!-- Blackjack Trainer Modal -->
     <div id="bj-trainer-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 style="color:var(--neon-pink)">TRAINER ALERT</h2>
@@ -518,22 +525,23 @@
             if(l===3){ 
                 if(f[0]===3) return 2500; 
                 if(su&&s.every(x=>x.rank>=10)) return 1300; 
-                if(su&&(r[2]-r[0]<=4||(r[2]===14&&r[1]<=5))) return 800; 
-                // Unsuited KQJ is mathematically superior to any 2 unsuited high cards
+                if(su&&(r[2]-r[0]<=4||(r[2]===14&&r[1]<=5))) {
+                    let spread = r[2]-r[0];
+                    if (r[2]===14 && r[1]<=5) spread = r[1] - 1; 
+                    if (spread === 4 && highCards === 0) return 400; // Penalize weak gaps
+                    return 550; 
+                } 
                 if(!su && highCards===3 && r[0]===11 && r[1]===12 && r[2]===13) return 740;
             }
             if(l===2){ 
                 if(f[0]===2) return r[0]>=11 ? 1400 : 1100; 
                 if(su && highCards===2) return 900; 
-                
-                // Patched Unsuited High Card Hierarchy
+                if(su && r[1]>=11 && r[0]===10) return 750; // KTs, QTs, JTs
                 if(!su && highCards===2) {
-                    if(r[0]===11 && r[1]===12) return 730; // Holds QJ
-                    if(r[1]<14) return 720;                // Holds KQ, KJ
-                    return 700;                            // Holds AK, AQ, AJ
+                    if(r[0]===11 && r[1]===12) return 730; 
+                    if(r[1]<14) return 720;                
+                    return 700;                            
                 }
-                
-                if(su && r[1]>=11 && r[0]===10) return 600; 
             }
             if(l===1){ 
                 if(highCards===1) return 500; 
